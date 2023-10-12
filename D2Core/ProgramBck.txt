@@ -1,0 +1,177 @@
+﻿
+// See https://aka.ms/new-console-template for more information
+using D2Core.core.network.messages.chat;
+using PacketDotNet;
+using SharpPcap;
+using System.Buffers.Binary;
+using System.Collections.Concurrent;
+using System.Net;
+using System.Text;
+
+var queue = new ConcurrentQueue<Packet>();
+var devices = CaptureDeviceList.Instance;
+var device = devices.Where(device => device.Name == "en1").FirstOrDefault();
+device.Open();
+device.Filter = "port 5555";
+device.OnPacketArrival += Device_OnPacketArrival;
+new Thread(new ThreadStart(device.StartCapture)).Start();
+new Thread(new ThreadStart(readData)).Start();
+new Thread(new ThreadStart(readAction)).Start();
+void Device_OnPacketArrival(object s, PacketCapture e)
+{
+    var packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data);
+    if (e.GetPacket().GetPacket().PayloadPacket.Bytes!=null)queue.Enqueue(packet);
+}
+
+void readAction()
+{
+    while (true)
+    {
+        string action = Console.ReadLine();
+    }
+
+}
+
+void readData()
+{
+    while (true)
+    {
+        if (queue.Count > 0)
+        {
+            queue.TryDequeue(out var packet);
+            readPacket(packet);
+            //Console.WriteLine("Rceived bytes : " + Convert.ToString(BitConverter.ToInt16(packet.GetPacket().PayloadPacket.PayloadPacket.PayloadData),toBase:2));
+            //Console.WriteLine(packet.GetPacket().PayloadPacket.PayloadPacket.PrintHex());
+        }
+    }
+}
+
+
+Console.ReadKey();
+
+
+// Reverses bits in a byte
+byte Reverse(byte inByte)
+{
+    byte result = 0x00;
+
+    for (byte mask = 0x80; Convert.ToInt32(mask) > 0; mask >>= 1)
+    {
+        // shift right current result
+        result = (byte)(result >> 1);
+
+        // tempbyte = 1 if there is a 1 in the current position
+        var tempbyte = (byte)(inByte & mask);
+        if (tempbyte != 0x00)
+        {
+            // Insert a 1 in the left
+            result = (byte)(result | 0x80);
+        }
+    }
+
+    return (result);
+}
+
+void readPacket(Packet e)
+{
+    var payload = e.PayloadPacket.PayloadPacket;
+    byte[] packet = payload.PayloadData;
+    if (payload == null || payload.PayloadData == null || payload.PayloadData.Length < 2) return;
+    //Console.WriteLine(payload.PrintHex());
+    ushort he = BinaryPrimitives.ReadUInt16BigEndian(packet);
+    //short he = (short)(header>>>24);//Getting to the first byte of the sequence
+    MemoryStream ms = new MemoryStream(packet.Skip(0).ToArray());
+    //ms.Read(header, 1, 1);
+    //Console.Write($"{DateTime.UtcNow}  : Header Data : " + he.ToString("X"));
+    string direction = "";
+    if (e is EthernetPacket eth)
+    {
+        var ip = e.Extract<IPPacket>();
+        direction = ip.SourceAddress.Address.Equals(IPAddress.Parse("192.168.1.23").Address) ? "[SENT]" : "[RECEIVED]";
+        Console.Write(direction);
+    }
+   
+    
+    Console.Write(" | Packet ID : " + getPacketId(he));
+    Console.Write(" | Len type : " + getLenType(he));
+    //if(packet.Length > 5) Console.Write(" | Instance ID : " + getInstanceId(BinaryPrimitives.ReadUInt32BigEndian(packet.Skip(2).Skip(getLenType(he)).ToArray())));
+    Console.Write(" | Data Length : " + getPacketLength(ms,getLenType(he)) + "\n");
+    printData(packet);
+    if (getPacketId(he) == 6075) Console.WriteLine($"Ping message {direction} !");
+    if( getPacketId(he) == 8522) Console.WriteLine($"Ping message {direction} !");
+    if(getPacketId(he) == 8812)
+    {
+        var msg = new ChatServerMessage();
+        var data = new MemoryStream(packet.Skip(sizeof(short)).Skip(getLenType(he)).Skip(1).ToArray());
+        try
+        {
+            msg = msg.Deserialize(ref data);
+        }catch(Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+        
+    }
+}
+
+void printData(byte[] packet)
+{
+    if (packet.Length <= 3) return;
+    var data = packet.Skip(2).Skip((int)getLenType(BinaryPrimitives.ReadUInt16BigEndian(packet.ToArray()))).Skip(1).ToArray();
+}
+
+uint getInstanceId(uint header)
+{
+    return header;
+}
+
+int getPacketId(ushort header)
+{
+    int id = (short)(header >> 2);
+    //Console.WriteLine(" | Shift 2 : " + Convert.ToString(id, toBase: 2));
+    //header = BinaryPrimitives.ReverseEndianness(header);
+
+    return id;
+}
+
+int getLenType(ushort header)
+{
+    int lentype = (int)(header & 3);
+    return lentype;
+}
+
+
+uint getPacketLength(MemoryStream stream,int lentype)
+{
+    uint length=0;
+    while (lentype-- >0)
+    {
+        uint d = 0;
+        d = (uint)stream.ReadByte();
+        length = (length << 8) + d;
+    }
+    return length;
+}
+
+ uint subComputeStaticHeader(uint msgId, uint typeLen)
+      {
+         return msgId << 2 | typeLen;
+      }
+
+uint  computeTypeLen(uint len)
+      {
+     if(len > 65535)
+         {
+    return 3;
+}
+if (len > 255)
+{
+    return 2;
+}
+if (len > 0)
+{
+    return 1;
+}
+return 0;
+      }
+

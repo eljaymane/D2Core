@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
+    <PackageReference Include="sharppcap" Version="6.2.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="core\data\" />
+    <None Remove="Game\" />
+    <None Remove="core\events\" />
+    <None Remove="core\events\eventbus\" />
+    <None Remove="core\events\eventbus\abstractions\" />
+    <None Remove="core\events\abstractions\" />
+    <None Remove="infrastructure\" />
+    <None Remove="infrastructure\networking\" />
+    <None Remove="core\exceptions\" />
+    <None Remove="Game\network\" />
+    <None Remove="Game\utils\" />
+    <None Remove="Game\network\events\eventHandlers\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="infrastructure\data\" />
+    <Folder Include="infrastructure\exceptions\" />
+    <Folder Include="Game\" />
+    <Folder Include="infrastructure\events\" />
+    <Folder Include="infrastructure\events\eventbus\" />
+    <Folder Include="infrastructure\events\eventbus\abstractions\" />
+    <Folder Include="infrastructure\events\abstractions\" />
+    <Folder Include="infrastructure\" />
+    <Folder Include="core\events\" />
+    <Folder Include="infrastructure\networking\" />
+    <Folder Include="core\exceptions\" />
+    <Folder Include="Game\network\" />
+    <Folder Include="Game\utils\" />
+    <Folder Include="Game\network\events\eventHandlers\" />
+  </ItemGroup>
+</Project>
